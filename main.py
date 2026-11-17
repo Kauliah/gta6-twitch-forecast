@@ -18,7 +18,7 @@ hour) and by how big the launch is, so each comparable is weighted by:
     (their release-day shapes are distorted by pre-release play);
   * console-only launches x2 (GTA VI is console-only);
   * rolling-midnight-local unlocks x1.5 (GTA VI unlocks rolling midnight local);
-  * size: a Gaussian kernel on ln(hour-1 viewers) with bandwidth 2.0, so
+  * size: a Gaussian kernel on ln(hour-1 viewers) with bandwidth 1.0, so
     launches the size of this one dominate.
 
 For each hour we fit a weighted linear regression of r_h on centred log size
@@ -29,9 +29,18 @@ Quantiles are then p1 * exp(median_h + z_tau * sigma_h) with the standard
 normal quantiles, rounded to 2 decimals.
 
 The weights, bandwidth, slope and spread were chosen by leave-one-out
-cross-validation on the comparables themselves (mean log-scale pinball loss
-0.248 on big tier-clean launches, vs 0.347 for the persistence baseline on the
-same targets; 0.40 vs 0.93 over all 37 usable comparables).  The model refits
+cross-validation on the comparables themselves.  Revision 2026-11-17:
+narrowed the size kernel (bandwidth 2.0 -> 1.0) so a launch is forecast
+from launches its own size instead of the whole pool, widened the spread
+cap (0.9 -> 1.5 log units, the old cap bound on high-dispersion hours) and
+widened the slope clip (0.5 -> 1.0).  Measured LOO mean log-scale pinball
+loss over the 37 usable comparables: all launches 0.420 (was 0.400 -- the
+narrower kernel hurts tiny launches under 50k hour-1 viewers, which lose
+size peers); the five biggest launches 0.110 (was 0.123); launches with
+hour-1 >= 50k and clean tier 0.172 (was 0.177).  GTA VI's hour 1 will be
+the largest ever, so the big-launch subsets are the decision-relevant
+ones: the revision is tuned for a gigantic launch, not for small ones.
+Baseline persistence on the same targets scores 0.930.  The model refits
 from whatever comparables the case it is given holds, so on the final case it
 automatically uses all 42 launches, including the four practice ones.
 
@@ -62,10 +71,10 @@ LEVELS = [0.05, 0.25, 0.5, 0.75, 0.95]
 Z = [-1.6448536269514722, -0.6744897501960817, 0.0, 0.6744897501960817, 1.6448536269514722]
 
 # Tuned constants (see header): see LOO notes above.
-SIZE_BANDWIDTH = 2.0      # Gaussian kernel bandwidth on ln(hour-1 viewers)
-SLOPE_CLIP = 0.5          # per-hour log-size slope, clipped to +/- this
+SIZE_BANDWIDTH = 1.0      # Gaussian kernel bandwidth on ln(hour-1 viewers)
+SLOPE_CLIP = 1.0          # per-hour log-size slope, clipped to +/- this
 SIGMA_FLOOR = 0.12        # minimum log-spread of an hour's forecast
-SIGMA_CAP = 0.9           # maximum log-spread of an hour's forecast
+SIGMA_CAP = 1.5           # maximum log-spread of an hour's forecast
 BASELINE_SIGMA = 0.15     # fallback spread per sqrt-hour (house baseline)
 MIN_DAY_HOURS = 18        # a comparable needs this many of hours 2..24
 
